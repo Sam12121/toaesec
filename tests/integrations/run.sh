@@ -1,0 +1,5 @@
+#!/bin/bash
+DF_TOAE_CTL_PATH="${DF_TOAE_CTL_PATH:-../../toae_ctl}"
+DF_BENCH_COUNT="${DF_BENCH_COUNT:-5}"
+TOAE_URL=$TOAE_URL DF_TOAE_CTL_PATH=$DF_TOAE_CTL_PATH TOAE_APIKEY=$TOAE_APIKEY go run ./main.go -bench $DF_BENCH_COUNT -num-hosts=4 -num-vulns=1000000
+

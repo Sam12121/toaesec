@@ -1,0 +1,88 @@
+module github.com/Sam12121/toaetest/toae_bootstrapper
+
+go 1.21
+
+replace github.com/Sam12121/golang_toae_sdk/utils => ../golang_toae_sdk/utils/
+
+replace github.com/Sam12121/golang_toae_sdk/client => ../golang_toae_sdk/client/
+
+replace github.com/Sam12121/toaetest/toae_utils => ../toae_utils/
+
+replace github.com/Sam12121/df-utils => ../toae_agent/tools/apache/toae/df-utils
+
+replace github.com/Sam12121/agent-plugins-grpc => ../toae_agent/plugins/agent-plugins-grpc
+
+replace github.com/Sam12121/compliance => ../toae_agent/plugins/compliance
+
+require (
+	github.com/containerd/cgroups/v3 v3.0.2
+	github.com/Sam12121/toaetest/toae_utils v0.0.0-00010101000000-000000000000
+	github.com/Sam12121/agent-plugins-grpc v1.1.0
+	github.com/Sam12121/compliance v0.0.0-00010101000000-000000000000
+	github.com/Sam12121/df-utils v0.0.0-00010101000000-000000000000
+	github.com/Sam12121/golang_toae_sdk/client v0.0.0-00010101000000-000000000000
+	github.com/Sam12121/golang_toae_sdk/utils v0.0.0-00010101000000-000000000000
+	github.com/Sam12121/kubernetes-scanner/v2 v2.0.0-20231124091715-96cf76a7b60f
+	github.com/minio/selfupdate v0.6.0
+	github.com/opencontainers/runtime-spec v1.1.0
+	github.com/rs/zerolog v1.30.0
+	github.com/weaveworks/scope v1.13.2
+	google.golang.org/grpc v1.56.1
+	gopkg.in/ini.v1 v1.67.0
+)
+
+require (
+	aead.dev/minisign v0.2.0 // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
+	github.com/c9s/goprocinfo v0.0.0-20151025191153-19cb9f127a9c // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cilium/ebpf v0.9.1 // indirect
+	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/docker/docker v1.4.2-0.20180827131323-0c5f8d2b9b23 // indirect
+	github.com/docker/go-units v0.4.0 // indirect
+	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/godbus/dbus/v5 v5.0.4 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/uuid v1.3.1 // indirect
+	github.com/gorilla/websocket v0.0.0-20160221213430-5c91b59efa23 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.5 // indirect
+	github.com/hibiken/asynq v0.24.1 // indirect
+	github.com/k-sone/critbitgo v1.2.0 // indirect
+	github.com/klauspost/compress v1.16.7 // indirect
+	github.com/kr/pty v1.1.1 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
+	github.com/lestrrat-go/httpcc v1.0.1 // indirect
+	github.com/lestrrat-go/httprc v1.0.4 // indirect
+	github.com/lestrrat-go/iter v1.0.2 // indirect
+	github.com/lestrrat-go/jwx/v2 v2.0.12 // indirect
+	github.com/lestrrat-go/option v1.0.1 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/opentracing/opentracing-go v1.1.0 // indirect
+	github.com/pierrec/lz4/v4 v4.1.18 // indirect
+	github.com/redis/go-redis/v9 v9.2.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
+	github.com/segmentio/asm v1.2.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
+	github.com/twmb/franz-go v1.14.4 // indirect
+	github.com/twmb/franz-go/pkg/kadm v1.9.0 // indirect
+	github.com/twmb/franz-go/pkg/kmsg v1.6.1 // indirect
+	github.com/ugorji/go v0.0.0-20170918222552-54210f4e076c // indirect
+	github.com/weaveworks/common v0.0.0-20200310113808-2708ba4e60a4 // indirect
+	github.com/weaveworks/ps v0.0.0-20160725183535-70d17b2d6f76 // indirect
+	github.com/willdonnelly/passwd v0.0.0-20141013001024-7935dab3074c // indirect
+	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/net v0.14.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
+	google.golang.org/protobuf v1.30.0 // indirect
+)

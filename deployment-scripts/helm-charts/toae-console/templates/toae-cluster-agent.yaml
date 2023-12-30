@@ -1,0 +1,85 @@
+{{- if .Values.console_agents.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "toae-console.fullname" . }}-cluster-agent
+  labels:
+    {{- include "toae-console.labels" . | nindent 4 }}
+    name: {{ include "toae-console.fullname" . }}-cluster-agent
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "toae-console.labels" . | nindent 6 }}
+      name: {{ include "toae-console.fullname" . }}-cluster-agent
+  template:
+    metadata:
+      labels:
+        {{- include "toae-console.labels" . | nindent 8 }}
+        name: {{ include "toae-console.fullname" . }}-cluster-agent
+    spec:
+      serviceAccountName: {{ include "toae-console.serviceAccountName" . }}
+      automountServiceAccountToken: true
+      containers:
+        - name: toae-cluster-agent
+          image: "{{ .Values.global.imageRepoPrefix }}/{{ .Values.console_agents.cluster_agent.image.repository }}:{{ default .Values.global.imageTag .Values.console_agents.cluster_agent.image.tag }}"
+          imagePullPolicy: {{ .Values.console_agents.cluster_agent.image.pullPolicy }}
+          env:
+            - name: MGMT_CONSOLE_URL_INTERNAL
+              value: {{ include "toae-console.fullname" . }}-server
+            - name: MGMT_CONSOLE_PORT_INTERNAL
+              value: "8081"
+            - name: MGMT_CONSOLE_URL
+              value: {{ include "toae-console.fullname" . }}-router
+            - name: MGMT_CONSOLE_PORT
+              value: "443"
+            - name: "TOAE_KEY"
+              value: "\"\""
+            - name: "TOAE_CONSOLE_AGENT"
+              value: "true"
+            - name: DF_CLUSTER_NAME
+              value: "{{ .Values.console_agents.cluster_name }}"
+            - name: AGENT_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- if .Values.console_agents.cluster_name }}
+            - name: SCOPE_HOSTNAME
+              value: "{{ .Values.console_agents.cluster_name }}-$(AGENT_HOSTNAME)"
+            {{- else }}
+            - name: SCOPE_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- end }}
+            - name: AGENT_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AGENT_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+            requests:
+              cpu: {{ .Values.console_agents.cluster_agent.resources.requests.cpu }}
+              memory: {{ .Values.console_agents.cluster_agent.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.console_agents.cluster_agent.resources.limits.cpu }}
+              memory: {{ .Values.console_agents.cluster_agent.resources.limits.memory }}
+      {{- with .Values.console_agents.agent.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.console_agents.agent.affinity }}
+      affinity:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.console_agents.agent.tolerations }}
+      tolerations:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

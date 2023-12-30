@@ -1,0 +1,37 @@
+FROM golang:1.19-bullseye AS build
+RUN apt-get update \
+    && apt-get install -y bash make git gcc \
+    && cd /go \
+    && git clone --depth 1 -b v0.44.1 https://github.com/Sam12121/syft \
+    && cd /go/syft \
+    && go build -v -o syftCli .
+
+FROM scratch
+
+MAINTAINER TOAE Security Inc
+LABEL toae.role=system
+
+WORKDIR /
+
+COPY tools/apache/scope/docker/toae_exe toae/usr/local/discovery/toae-discovery
+COPY fargate/bin/ toae/bin/
+COPY etc/certs/* toae/etc/filebeat/
+COPY plugins/bin/ toae/bin/
+COPY --from=build /go/syft/syftCli /toae/usr/local/bin/syft
+
+COPY run_discovery.sh /toae/home/toae/
+COPY fargate/run_discovery_loop.sh /toae/home/toae/
+
+COPY tools/apache/scope/docker/uploadFile.sh toae/home/toae/uploadFile.sh
+
+ADD fargate/misc/scanners-1.3.0.tar.gz /toae/home/toae/
+
+COPY misc/toae/df-utils/get_cloud_instance_id/getCloudInstanceId /toae/usr/local/bin/getCloudInstanceId
+COPY tools/apache/scope/docker/toaeutil /toae/usr/bin/toaeutil
+
+COPY fargate/toae-entry-point-scratch.sh toae/usr/local/bin/toae-entry-point-scratch.sh
+COPY fargate/start-df-services.sh toae/usr/local/bin/start-df-services.sh
+
+ENTRYPOINT ["/toae/bin/ls"]
+
+VOLUME ["/toae"]

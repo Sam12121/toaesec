@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-echo-server
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: flask-echo-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-echo-server
+  template:
+    metadata:
+      labels:
+        app: flask-echo-server
+    spec:
+      volumes:
+        - name: toae-volume
+          emptyDir: {}
+
+      initContainers:
+      - name: toae-agent
+        image: "{{ .Values.toaeAgentImage.name }}:{{ .Values.toaeAgentImage.tag }}"
+        command: ["/toae/bin/bash", "-c"]
+        args: ["/toae/bin/cp -r /toae/* /toae-mount"]
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: toae-volume
+          mountPath: /toae-mount
+
+      containers:
+        - name: flask
+          image: toaeio/flask-echo-server:latest
+          ports:
+          - containerPort: 5000
+          command: ["/toae/usr/local/bin/toae-entry-point-scratch.sh"]
+          args: ["/app/entrypoint.sh"]
+          volumeMounts:
+          - name: toae-volume
+            mountPath: /toae
+          env:
+          - name: TOAE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: "toae-key"
+                key: "toae-key"
+          - name: USER_DEFINED_TAGS
+            value: {{ .Values.userDefinedTags }}
+          - name: DF_ENABLE_PROCESS_REPORT
+            value: "{{ .Values.enableGraphReport }}"
+          - name: DF_ENABLE_CONNECTIONS_REPORT
+            value: "{{ .Values.enableGraphReport }}"
+          - name: MGMT_CONSOLE_URL
+            value: "{{ required "managementConsoleUrl is required" .Values.managementConsoleUrl }}"
+          - name: MGMT_CONSOLE_PORT
+            value: "{{ required "managementConsolePort is required" .Values.managementConsolePort }}"
+          - name: DF_INSTALL_DIR
+            value: "/toae"
+          - name: DF_SERVERLESS
+            value: "true"
+          - name: INSTANCE_ID_SUFFIX
+            value: "{{ .Values.instanceIdSuffix }}"
+          - name: SCOPE_HOSTNAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: AGENT_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: AGENT_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}

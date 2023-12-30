@@ -1,0 +1,170 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "toae-console.fullname" . }}-server
+  labels:
+    {{- include "toae-console.labels" . | nindent 4 }}
+    name: {{ include "toae-console.fullname" . }}-server
+spec:
+  {{- if not .Values.server.autoscaling.enabled }}
+  replicas: {{ .Values.server.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "toae-console.selectorLabels" . | nindent 6 }}
+      name: {{ include "toae-console.fullname" . }}-server
+  template:
+    metadata:
+      {{- with .Values.server.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "toae-console.selectorLabels" . | nindent 8 }}
+        name: {{ include "toae-console.fullname" . }}-server
+    spec:
+      serviceAccountName: {{ include "toae-console.serviceAccountName" . }}
+      automountServiceAccountToken: true
+      securityContext:
+        {{- toYaml .Values.server.podSecurityContext | nindent 8 }}
+      containers:
+        - name: server
+          securityContext:
+            {{- toYaml .Values.server.securityContext | nindent 12 }}
+          image: "{{ .Values.global.imageRepoPrefix }}/{{ .Values.server.image.repository }}:{{ default .Values.global.imageTag .Values.server.image.tag }}"
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          env:
+            - name: CONSOLE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: TOAE_ACCESS_TOKEN_EXPIRY_MINUTES
+              value: "5"
+            - name: TOAE_CONSOLE_ORCHESTRATOR
+              value: "kubernetes"
+          envFrom:
+            - configMapRef:
+                name: "{{ include "toae-console.fullname" . }}-config"
+            - secretRef:
+                {{- if .Values.redis.create }}
+                name: "{{ include "toae-console.fullname" . }}-secrets-redis"
+                {{- else }}
+                name: {{ .Values.redis.secretName }}
+                {{- end }}
+            - secretRef:
+                {{- if or .Values.fileserver.create .Values.aws_s3_buckets.create }}
+                name: "{{ include "toae-console.fullname" . }}-secrets-fileserver"
+                {{- else if .Values.fileserver.secretName }}
+                name: {{ .Values.fileserver.secretName }}
+                {{- else if .Values.aws_s3_buckets.secretName }}
+                name: {{ .Values.aws_s3_buckets.secretName }}
+                {{- end }}
+            - secretRef:
+                {{- if .Values.kafka.create }}
+                name: "{{ include "toae-console.fullname" . }}-secrets-kafka"
+                {{- else }}
+                name: {{ .Values.kafka.secretName }}
+                {{- end }}
+            - secretRef:
+                {{- if .Values.postgres.create }}
+                name: "{{ include "toae-console.fullname" . }}-secrets-postgres"
+                {{- else }}
+                name: {{ .Values.postgres.secretName }}
+                {{- end }}
+            - secretRef:
+                {{- if .Values.neo4j.create }}
+                name: "{{ include "toae-console.fullname" . }}-secrets-neo4j"
+                {{- else }}
+                name: {{ .Values.neo4j.secretName }}
+                {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: internal
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /toae/ping
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /toae/ping
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+      {{- with .Values.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "toae-console.fullname" . }}-server
+  labels:
+    {{- include "toae-console.labels" . | nindent 4 }}
+    name: {{ include "toae-console.fullname" . }}-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.server.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.server.service.internalPort }}
+      targetPort: internal
+      protocol: TCP
+      name: internal
+  selector:
+    {{- include "toae-console.selectorLabels" . | nindent 4 }}
+    name: {{ include "toae-console.fullname" . }}-server
+---
+{{- if .Values.server.autoscaling.enabled }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "toae-console.fullname" . }}-server
+  labels:
+    {{- include "toae-console.labels" . | nindent 4 }}
+    name: {{ include "toae-console.fullname" . }}-server
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "toae-console.fullname" . }}-server
+  minReplicas: {{ .Values.server.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.server.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.server.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.server.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.server.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: {{ .Values.server.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}

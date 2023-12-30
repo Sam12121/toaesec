@@ -1,0 +1,26 @@
+{
+  "identities": [
+    {
+        "name": "anonymous",
+        "actions": [
+            "Read:database"
+        ]
+    },
+    {
+      "name": "admin",
+      "credentials": [
+        {
+          "accessKey": "$MINIO_ROOT_USER",
+          "secretKey": "$MINIO_ROOT_PASSWORD"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "List",
+        "Tagging",
+        "Write"
+      ]
+    }
+  ]
+}

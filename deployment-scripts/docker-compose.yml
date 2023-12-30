@@ -1,0 +1,408 @@
+version: "3.7"
+
+x-service-variables: &common-creds
+    # uncomment to set the credentials otherwise default credentials will be used
+    # TOAE_NEO4J_USER: neo4juser
+    # TOAE_NEO4J_PASSWORD: changeme
+    # NEO4J_AUTH: neo4juser/changeme
+    # TOAE_POSTGRES_USER_DB_USER: postgresuser
+    # TOAE_POSTGRES_USER_DB_PASSWORD: changeme
+    TOAE_NEO4J_BOLT_PORT: 7687
+    TOAE_NEO4J_HOST: toae-neo4j
+    TOAE_POSTGRES_USER_DB_HOST: toae-postgres
+    TOAE_POSTGRES_USER_DB_NAME: users
+    TOAE_POSTGRES_USER_DB_PORT: 5432
+    TOAE_POSTGRES_USER_DB_SSLMODE: disable
+    TOAE_KAFKA_BROKERS: toae-kafka-broker:9092
+    # public bucket with read permisons on objects for hosting vulnerability database
+    # S3 bucket permissions {"Version":"2012-10-17","Statement":[{"Sid":"database","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::<bucket-name>/database/*","arn:aws:s3:::<bucket-name>/database"]}]}
+    TOAE_MINIO_DB_BUCKET: database
+    # prvate bucket to host reports, sbom, etc.
+    TOAE_MINIO_BUCKET: default
+    # set s3.amazonaws.com if using s3 buckets
+    TOAE_MINIO_HOST: toae-file-server
+    TOAE_MINIO_PORT: 9000
+    # uncomment to set access key if using s3 buckets
+    # TOAE_MINIO_USER: miniouser
+    # uncomment to set secret key if using s3 buckets
+    # TOAE_MINIO_PASSWORD: changeme
+    # set true if using s3 buckets
+    TOAE_MINIO_SECURE: "false"
+    # set aws s3 buckets region if using s3 buckets
+    TOAE_MINIO_REGION: ""
+    TOAE_REDIS_DB_NUMBER: 0
+    TOAE_REDIS_HOST: toae-redis
+    TOAE_REDIS_PORT: 6379
+    TOAE_SAAS_DEPLOYMENT: "false"
+    TOAE_DEBUG: "false"
+    DF_ENABLE_DEBUG: ""
+    TOAE_ENABLE_PPROF: ""
+    TOAE_TELEMETRY_ENABLED: "true"
+    TOAE_TASKS_CONCURRENCY: 50
+    TOAE_TASKS_MAX_RETRIES: 3
+    TOAE_MAX_SCAN_WORKLOAD: 5
+
+services:
+
+  toae-postgres:
+    container_name: toae-postgres
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_postgres_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    restart: unless-stopped
+    networks:
+      - toae_net
+    volumes:
+      - toae_data:/data:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+
+  toae-redis:
+    container_name: toae-redis
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_redis_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    restart: unless-stopped
+    networks:
+      - toae_net
+    volumes:
+      - toae_redis_data:/data:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+
+  toae-neo4j:
+    container_name: toae-neo4j
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_neo4j_ce:${DF_IMG_TAG:-2.1.0}
+
+    ulimits:
+      core: 0
+    restart: unless-stopped
+    tmpfs:
+      - /tmp
+    networks:
+      - toae_net
+    environment:
+      <<: *common-creds
+      NEO4J_dbms_memory_pagecache_size: 2600m
+      NEO4JLABS_PLUGINS: '["apoc"]'
+      DF_REMOTE_BACKUP_ROOT: ""
+      AWS_ACCESS_KEY: ""
+      AWS_SECRET_KEY: ""
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - toae_neo4j_data:/data:rw
+      - toae_neo4j_logs:/logs:rw
+      - toae_neo4j_plugins:/plugins:rw
+      - toae_neo4j_backups:/backups:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+
+  toae-console-agent:
+    container_name: toae-console-agent
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_agent_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    deploy:
+      resources:
+        limits:
+          cpus: ".2"
+    restart: unless-stopped
+    environment:
+      - MGMT_CONSOLE_URL_INTERNAL=127.0.0.1
+      - MGMT_CONSOLE_PORT_INTERNAL=8081
+      - MGMT_CONSOLE_URL=127.0.0.1
+      - MGMT_CONSOLE_PORT=443
+      - TOAE_KEY=""
+      - TOAE_CONSOLE_AGENT=true
+    network_mode: "host"
+    pid: "host"
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:rw
+      - /var/log/fenced
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/:/fenced/mnt/host/var/lib/docker/:rw
+      - /:/fenced/mnt/host/:ro
+    privileged: true
+    depends_on:
+      - toae-server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+
+  toae-router:
+    container_name: toae-router
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_router_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    networks:
+      - toae_net
+    restart: unless-stopped
+    environment:
+      FORCE_HTTPS_REDIRECT: "true"
+      KAFKA_REST_PROXY: "toae-rest-proxy:8082"
+    ports:
+      - "80:80"
+      - "${MGMT_CONSOLE_PORT:-443}:443"
+    volumes:
+      - /etc/toae/certs:/etc/toae/certs/:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+
+  # this service can be commented in case S3 is used
+  toae-file-server:
+    container_name: toae-file-server
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_file_server_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    networks:
+      - toae_net
+    restart: unless-stopped
+    # environment:
+    #   - MINIO_ROOT_USER=toae
+    #   - MINIO_ROOT_PASSWORD=toae
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9333:9333"
+    volumes:
+      - toae_file_server:/data:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+
+  toae-server:
+    container_name: toae-server
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_server_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    tmpfs:
+      - /tmp
+    environment:
+      <<: *common-creds
+      ELASTICSEARCH_SCHEME: "http"
+      TOAE_ACCESS_TOKEN_EXPIRY_MINUTES: 5
+      TOAE_CONSOLE_ORCHESTRATOR: "docker"
+    networks:
+      - toae_net
+    depends_on:
+      - toae-redis
+      - toae-postgres
+      - toae-neo4j
+    ports:
+      - "0.0.0.0:8080:8080"
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/docker/certs.d:/etc/docker/certs.d:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+    restart: unless-stopped
+
+  toae-worker:
+    container_name: toae-worker
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_worker_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    restart: unless-stopped
+    networks:
+      - toae_net
+    depends_on:
+      - toae-redis
+      - toae-postgres
+      - toae-file-server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+    environment:
+      <<: *common-creds
+    volumes:
+      - /etc/docker/certs.d:/etc/docker/certs.d:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # toae-worker-2:
+  #   container_name: toae-worker-2
+  #   image: ${IMAGE_REPOSITORY:-toaeio}/toae_worker_ce:${DF_IMG_TAG:-2.1.0}
+  #   ulimits:
+  #     core: 0
+  #   restart: unless-stopped
+  #   networks:
+  #     - toae_net
+  #   depends_on:
+  #     - toae-redis
+  #     - toae-postgres
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "1g"
+  #   environment:
+  #     <<: *common-creds
+  #   volumes:
+  #     - /etc/docker/certs.d:/etc/docker/certs.d:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock
+
+  # toae-worker-3:
+  #   container_name: toae-worker-3
+  #   image: ${IMAGE_REPOSITORY:-toaeio}/toae_worker_ce:${DF_IMG_TAG:-2.1.0}
+  #   ulimits:
+  #     core: 0
+  #   restart: unless-stopped
+  #   networks:
+  #     - toae_net
+  #   depends_on:
+  #     - toae-redis
+  #     - toae-postgres
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "1g"
+  #   environment:
+  #     <<: *common-creds
+  #   volumes:
+  #     - /etc/docker/certs.d:/etc/docker/certs.d:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock
+
+  toae-scheduler:
+    container_name: toae-scheduler
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_worker_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    restart: unless-stopped
+    environment:
+      <<: *common-creds
+      TOAE_MODE: scheduler
+    networks:
+      - toae_net
+    depends_on:
+      - toae-redis
+      - toae-postgres
+      - toae-worker
+      - toae-neo4j
+      - toae-file-server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+
+  toae-ui:
+    container_name: toae-ui
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_ui_ce:${DF_IMG_TAG:-2.1.0}
+    ulimits:
+      core: 0
+    networks:
+      - toae_net
+    restart: unless-stopped
+    depends_on:
+      - toae-server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+
+  toae-kafka-broker:
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_kafka_broker_ce:${DF_IMG_TAG:-2.1.0}
+    hostname: toae-kafka-broker
+    container_name: toae-kafka-broker
+    # environment:
+    #   - KAFKA_LOG_DIRS=/var/lib/kafka/data
+    ports:
+      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:9101:9101"
+    volumes:
+      - toae_kafka_broker:/var/lib/kafka/data:rw
+    networks:
+      - toae_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+    restart: unless-stopped
+
+  toae-ingester:
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_worker_ce:${DF_IMG_TAG:-2.1.0}
+    hostname: toae-ingester
+    container_name: toae-ingester
+    ports:
+      - "127.0.0.1:8181:8181"
+    environment:
+      <<: *common-creds
+      TOAE_MODE: ingester
+    networks:
+      - toae_net
+    depends_on:
+      - toae-kafka-broker
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+    restart: unless-stopped
+
+  toae-telemetry:
+    image: ${IMAGE_REPOSITORY:-toaeio}/toae_telemetry_ce:${DF_IMG_TAG:-2.1.0}
+    hostname: toae-telemetry
+    container_name: toae-telemetry
+    ports:
+      - "127.0.0.1:14267:14267"
+      - "127.0.0.1:14268:14268"
+      - "127.0.0.1:9411:9411"
+      - "127.0.0.1:14269:14269"
+      - "127.0.0.1:16686:16686"
+    networks:
+      - toae_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+    restart: unless-stopped
+
+  # toae-asynq-mon:
+  #   image: ${IMAGE_REPOSITORY:-toaeio}/asynqmon:latest
+  #   hostname: toae-asynq-mon
+  #   container_name: toae-asynq-mon
+  #   environment:
+  #     - PORT=8090
+  #     - REDIS_ADDR=toae-redis:6379
+  #   ports:
+  #     - "8090:8090"
+  #   networks:
+  #     - toae_net
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #   restart: unless-stopped
+
+volumes:
+  toae_data:
+    driver: local
+  toae_redis_data:
+    driver: local
+  toae_neo4j_data:
+    driver: local
+  toae_neo4j_logs:
+    driver: local
+  toae_neo4j_plugins:
+    driver: local
+  toae_neo4j_backups:
+    driver: local
+  toae_kafka_broker:
+    driver: local
+  toae_file_server:
+    driver: local
+
+networks:
+  toae_net:
+    driver: bridge

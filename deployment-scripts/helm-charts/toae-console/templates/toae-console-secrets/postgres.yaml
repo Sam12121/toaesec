@@ -1,0 +1,20 @@
+{{- if .Values.postgres.create }}
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: {{ include "toae-console.fullname" . }}-secrets-postgres
+  labels:
+    {{- include "toae-console.labels" . | nindent 4 }}
+    name: {{ include "toae-console.fullname" . }}-secrets-postgres
+stringData:
+  TOAE_POSTGRES_USER_DB_PORT: "5432"
+  TOAE_POSTGRES_USER_DB_HOST: {{ include "toae-console.fullname" . }}-postgres
+  TOAE_POSTGRES_USER_DB_SSLMODE: disable
+  {{- if .Values.fileserver.secrets }}
+  TOAE_POSTGRES_USER_DB_USER: {{ .Values.postgres.secrets.POSTGRES_USER | quote }}
+  TOAE_POSTGRES_USER_DB_PASSWORD: {{ .Values.postgres.secrets.POSTGRES_PASSWORD | quote }}
+  {{- end }}
+  TOAE_POSTGRES_USER_DB_NAME: {{ .Values.postgres.config.POSTGRES_DB | quote }}
+{{- end }}

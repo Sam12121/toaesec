@@ -1,0 +1,22 @@
+{{- if .Values.fileserver.create }}
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: {{ include "toae-console.fullname" . }}-secrets-fileserver
+  labels:
+    {{- include "toae-console.labels" . | nindent 4 }}
+    component: file-server
+stringData:
+  TOAE_MINIO_HOST: {{ include "toae-console.fullname" . }}-file-server
+  TOAE_MINIO_PORT: "9000"
+  TOAE_MINIO_SECURE: "false"
+  TOAE_MINIO_BUCKET: default
+  {{- if .Values.fileserver.secrets }}
+  TOAE_MINIO_PASSWORD: {{ .Values.fileserver.secrets.MINIO_ROOT_PASSWORD | quote }}
+  TOAE_MINIO_USER: {{ .Values.fileserver.secrets.MINIO_ROOT_USER | quote }}
+  {{- end }}
+  TOAE_MINIO_DB_BUCKET: database
+{{- end }}
+

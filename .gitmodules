@@ -1,0 +1,32 @@
+[submodule "toae_agent/plugins/agent-plugins-grpc"]
+	path = toae_agent/plugins/agent-plugins-grpc
+	url = https://github.com/Sam12121/agent-plugins-grpc
+	branch = main
+[submodule "toae_agent/plugins/package-scanner"]
+	path = toae_agent/plugins/package-scanner
+	url = https://github.com/Sam12121/package-scanner
+	branch = main
+[submodule "toae_agent/plugins/SecretScanner"]
+	path = toae_agent/plugins/SecretScanner
+	url = https://github.com/Sam12121/SecretScanner
+	branch = main
+[submodule "toae_agent/plugins/compliance"]
+	path = toae_agent/plugins/compliance
+	url = https://github.com/Sam12121/compliance
+	branch = main
+[submodule "golang_toae_sdk"]
+	path = golang_toae_sdk
+	url = https://github.com/Sam12121/golang_toae_sdk.git
+	branch = main
+[submodule "toae_agent/plugins/YaraHunter"]
+	path = toae_agent/plugins/YaraHunter
+	url = https://github.com/Sam12121/YaraHunter.git
+	branch = main
+[submodule "toae_agent/plugins/yara-rules"]
+	path = toae_agent/plugins/yara-rules
+	url = https://github.com/Sam12121/yara-rules
+	branch = main
+[submodule "toae_agent/plugins/fluent-bit"]
+	path = toae_agent/plugins/fluent-bit
+	url = https://github.com/Sam12121/fluent-bit
+    branch = main

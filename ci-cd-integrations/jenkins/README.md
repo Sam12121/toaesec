@@ -1,0 +1,56 @@
+# Jenkins example for Toae Vulnerability Mapper
+
+This project demonstrates using Toae Vulnerability Mapper in Jenkins build pipeline.
+After customer's image is built, Toae Vulnerability Mapper is run on the image and results are sent to Toae management console for further analysis.
+There is also an option to fail the build in case number of vulnerabilities crosses given limit.
+
+| Variable                            | Description                                                                                                                              |
+|-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| def toae_mgmt_console_url = '' | Toae management console url                                                                                                         |
+| def toae_key = ""              | API key can be found on settings page of the toae                                                                                   |
+| def fail_cve_count = 100            | Fail jenkins build if number of vulnerabilities found is >= this number. Set -1 to pass regardless of vulnerabilities.                   |
+| def fail_critical_cve_count = 1     | Fail jenkins build if number of critical vulnerabilities found is >= this number. Set -1 to pass regardless of critical vulnerabilities. |
+| def fail_high_cve_count = 5         | Fail jenkins build if number of high vulnerabilities found is >= this number. Set -1 to pass regardless of high vulnerabilities.         |
+| def fail_medium_cve_count = 10      | Fail jenkins build if number of medium vulnerabilities found is >= this number. Set -1 to pass regardless of medium vulnerabilities.     |
+| def fail_low_cve_count = 20         | Fail jenkins build if number of low vulnerabilities found is >= this number. Set -1 to pass regardless of low vulnerabilities.           |  
+| def fail_cve_score = 8              | Fail jenkins build if cumulative CVE score is >= this value. Set -1 to pass regardless of cve score.                                     |
+| def mask_cve_ids = ""               | Comma separated. Example: "CVE-2019-9168,CVE-2019-9169"                                                                                  |
+
+## Steps
+- Ensure `toaeio/toae_package_scanner_ce:1.3.1` image is present in the vm where jenkins is installed.
+```shell script
+docker pull toaeio/toae_package_scanner_ce:1.3.1
+```
+### Scripted Pipeline
+```
+stage('Run Toae Vulnerability Mapper'){
+    ToaeAgent = docker.image("toaeio/toae_package_scanner_ce:1.3.1")
+    try {
+        c = ToaeAgent.run("-it --net=host -v /var/run/docker.sock:/var/run/docker.sock", "-toae-key=${toae_key} -vulnerability-scan=true -output=table -mode=local -mgmt-console-url=${toae_mgmt_console_url} -source=${full_image_name} -fail-on-count=${fail_cve_count} -fail-on-critical-count=${fail_critical_cve_count} -fail-on-high-count=${fail_high_cve_count} -fail-on-medium-count=${fail_medium_cve_count} -fail-on-low-count=${fail_low_cve_count} -fail-on-score=${fail_cve_score} -mask-cve-ids='${mask_cve_ids}'")
+        sh "docker logs -f ${c.id}"
+        def out = sh script: "docker inspect ${c.id} --format='{{.State.ExitCode}}'", returnStdout: true
+        sh "exit ${out}"
+    } finally {
+        c.stop()
+    }
+}
+```
+### Declarative Pipeline
+```
+stage('Run Toae Vulnerability Mapper'){
+    steps {
+        script {
+            ToaeAgent = docker.image("toaeio/toae_package_scanner_ce:1.3.1")
+            try {
+                c = ToaeAgent.run("-it --net=host -v /var/run/docker.sock:/var/run/docker.sock", "-toae-key=${toae_key} -vulnerability-scan=true -output=table -mode=local -mgmt-console-url=${toae_mgmt_console_url} -source=${full_image_name} -fail-on-count=${fail_cve_count} -fail-on-critical-count=${fail_critical_cve_count} -fail-on-high-count=${fail_high_cve_count} -fail-on-medium-count=${fail_medium_cve_count} -fail-on-low-count=${fail_low_cve_count} -fail-on-score=${fail_cve_score} -mask-cve-ids='${mask_cve_ids}'")
+                sh "docker logs -f ${c.id}"
+                def out = sh script: "docker inspect ${c.id} --format='{{.State.ExitCode}}'", returnStdout: true
+                sh "exit ${out}"
+            } finally {
+                c.stop()
+            }
+        }
+    }
+}
+```
+- Set `toae_mgmt_console_url`, `fail_cve_count` variables in Jenkinsfile
